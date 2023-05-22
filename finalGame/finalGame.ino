@@ -1,4 +1,6 @@
 #include <Gamebuino-Meta.h>
+#include "Sprite-Perso.h"
+
 
 // Bombs
 const int bombsNumber = 10;
@@ -18,14 +20,17 @@ const int medikitWidth = 3;
 const int medikitHeigth = 5;
 
 // Player
+int playerWidth = 16;  // Pas constant car la taille dépend de la nourriture restante
+const int playerHeight = 16;  // Constante
+const int playerY = gb.display.height() - playerHeight;  // Constante car le panier est fixe selon l'axe Y
 int playerX = 20;  // Le panier peut bouger horizontalement, donc ce n'est pas une constante
-const int playerY = gb.display.height() - 4;  // Constante car le panier est fixe selon l'axe Y
-int playerWidth = 4;  // Pas constant car la taille dépend de la nourriture restante
-const int playerHeight = 3;  // Constante
-
 int score = 0;
 int highscore = 0;
 int nourriture;  // Plus de nourriture est mieux. 0 nourriture = game over
+
+Image currentImage = IMAGE_DATA_STAND;
+bool keyPressDown = false;
+
 
 void setup() {
   gb.begin();
@@ -47,9 +52,28 @@ void loop() {
 void entrees() {
   if (gb.buttons.repeat(BUTTON_LEFT, 0) && playerX > 0) {
     playerX -= 2;
+    currentImage = IMAGE_DATA_LEFT;
+    keyPressDown = false;
+
   }
-  else if (gb.buttons.repeat(BUTTON_RIGHT, 0) && playerX < gb.display.width()) {
+  else if (gb.buttons.repeat(BUTTON_RIGHT, 0) && playerX+playerWidth < gb.display.width()) {
     playerX += 2;
+    currentImage = IMAGE_DATA_RIGHT;
+    keyPressDown = false;
+
+  }
+  else if (gb.buttons.repeat(BUTTON_DOWN, 0)) {
+    currentImage = IMAGE_DATA_MOOVE_CHARGE;
+    keyPressDown=true;
+  }
+  else if (gb.buttons.repeat(BUTTON_UP, 0)) {
+    currentImage = IMAGE_DATA_MOOVE_JUMP;
+    keyPressDown = false;
+ 
+  }
+  else{
+    currentImage = IMAGE_DATA_STAND;
+    keyPressDown = false;
   }
 }
 
@@ -70,21 +94,22 @@ void miseAJour() {
   for (int i = 0; i < bombsNumber; i += 1) {
     bombsY[i] += 1;
 
-    // Collisions
-    if (gb.collide.rectRect(playerX - playerWidth / 2, playerY, playerWidth, playerHeight, bombsX[i], bombsY[i], bombsWidth, bombsHeigth)) {
-      score += 1;
-      if (score > highscore) {
-        highscore = score;
+    if(!keyPressDown){
+      // Collisions
+      if (gb.collide.rectRect(playerX, playerY, playerWidth, playerHeight, bombsX[i], bombsY[i], bombsWidth, bombsHeigth)) {
+        score += 1;
+        if (score > highscore) {
+          highscore = score;
+        }
+        nourriture = nourriture + 20;  // MMmmmmm des oeufs
+        // Ajouter des carrotes. Sans dépasser le plafond
+        medikitNumber = min(score / 5, maxNumberMedikits);
+  
+        // Reset l'oeuf
+        bombsX[i] = random(0, gb.display.width());
+        bombsY[i] = random(-40, -bombsHeigth);  // Au dessus de l'écran
       }
-      nourriture = nourriture + 20;  // MMmmmmm des oeufs
-      // Ajouter des carrotes. Sans dépasser le plafond
-      medikitNumber = min(score / 5, maxNumberMedikits);
-
-      // Reset l'oeuf
-      bombsX[i] = random(0, gb.display.width());
-      bombsY[i] = random(-40, -bombsHeigth);  // Au dessus de l'écran
     }
-
     // Verifier que la carotte ne soit pas sortie de l'écran
     if (bombsY[i] >= gb.display.height()) {
       // Reset l'oeuf
@@ -96,17 +121,17 @@ void miseAJour() {
   // Carottes
   for (int i = 0; i < medikitNumber; i += 1) {
     medikitY[i] += 2;
-
-    // Collisions avec le joueur
-    if (gb.collide.rectRect(playerX - playerWidth / 2, playerY, playerWidth, playerHeight, medikitX[i], medikitY[i], medikitWidth, medikitHeigth)) {
-
-      nourriture -= 40;  // Allergie => moins de nourriture :(
-
-      // Reset la carotte
-      medikitX[i] = random(0, gb.display.width());
-      medikitY[i] = random(-20, -medikitHeigth);  // Au dessus de l'écran
+    if(!keyPressDown){
+      // Collisions avec le joueur
+      if (gb.collide.rectRect(playerX, playerY, playerWidth, playerHeight, medikitX[i], medikitY[i], medikitWidth, medikitHeigth)) {
+  
+        //nourriture -= 40;  // Allergie => moins de nourriture :(
+        
+        // Reset la carotte
+        medikitX[i] = random(0, gb.display.width());
+        medikitY[i] = random(-20, -medikitHeigth);  // Au dessus de l'écran
+      }
     }
-
     // Verifier que la carotte ne soit pas sortie de l'écran
     if (medikitY[i] >= gb.display.height()) {
       // Reset la carotte
@@ -134,7 +159,8 @@ void affichage() {
 
   // Player
   gb.display.setColor(WHITE);
-  gb.display.fillRect(playerX - playerWidth / 2, playerY, playerWidth, playerHeight);
+  gb.display.drawImage(playerX, playerY, currentImage);
+
 
   // Score
   gb.display.setColor(WHITE);
@@ -144,3 +170,6 @@ void affichage() {
   gb.display.setCursor(gb.display.width() - 8, 8);
   gb.display.print(highscore);
 }
+
+
+
